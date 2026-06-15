@@ -93,13 +93,12 @@ def process_store(best10_file, target_store, current_sales_map, output_dir):
                     "前期順位": pd.to_numeric(r[1], errors='coerce'),
                     "商品コード": code_str,
                     "商品名": str(r[3]).strip() if pd.notna(r[3]) else "",
-                    "基準売上実績": pd.to_numeric(r[4], errors='coerce'),
-                    "基準前年売上": pd.to_numeric(r[6], errors='coerce'),
-                    "基準比較日比(%)": pd.to_numeric(r[8], errors='coerce'),
+                    "前年売上実績": pd.to_numeric(r[4], errors='coerce'),
+                    "前年比較日比(%)": pd.to_numeric(r[8], errors='coerce'),
                     "今月売上実績": current_sales,
                     "今月比較日比(%)": current_ratio,
-                    "基準打数実績": pd.to_numeric(r[9], errors='coerce'),
-                    "基準単価実績": pd.to_numeric(r[13], errors='coerce'),
+                    "前年打数実績": pd.to_numeric(r[9], errors='coerce'),
+                    "前年一品単価": pd.to_numeric(r[13], errors='coerce'),
                 })
         except (ValueError, TypeError):
             pass
@@ -143,7 +142,7 @@ def process_store(best10_file, target_store, current_sales_map, output_dir):
 
             # 売上金額・単価カラムに整数フォーマット（小数点なし）を適用
             integer_format_columns = []
-            integer_target_headers = {"基準売上実績", "基準前年売上", "今月売上実績", "基準単価実績"}
+            integer_target_headers = {"前年売上実績", "今月売上実績", "前年一品単価"}
             for col_idx, header in enumerate(header_row, start=1):
                 if header is not None and str(header) in integer_target_headers:
                     integer_format_columns.append(col_idx)
@@ -155,14 +154,24 @@ def process_store(best10_file, target_store, current_sales_map, output_dir):
                         cell.number_format = '#,##0'
 
             # 赤太字条件付き書式の適用
-            for row_idx in range(2, worksheet.max_row + 1):
-                cell_ratio = worksheet.cell(row=row_idx, column=9)
-                ratio_val = cell_ratio.value
+            # 「今月比較日比(%)」と「商品名」のカラム位置をヘッダーから動的に特定
+            current_ratio_col = None
+            product_name_col = None
+            for col_idx, header in enumerate(header_row, start=1):
+                if header == "今月比較日比(%)":
+                    current_ratio_col = col_idx
+                elif header == "商品名":
+                    product_name_col = col_idx
 
-                if ratio_val is not None and isinstance(ratio_val, (int, float)) and ratio_val <= 100:
-                    cell_name = worksheet.cell(row=row_idx, column=4)
-                    cell_name.font = red_bold_font
-                    cell_ratio.font = red_bold_font
+            if current_ratio_col is not None and product_name_col is not None:
+                for row_idx in range(2, worksheet.max_row + 1):
+                    cell_ratio = worksheet.cell(row=row_idx, column=current_ratio_col)
+                    ratio_val = cell_ratio.value
+
+                    if ratio_val is not None and isinstance(ratio_val, (int, float)) and ratio_val <= 100:
+                        cell_name = worksheet.cell(row=row_idx, column=product_name_col)
+                        cell_name.font = red_bold_font
+                        cell_ratio.font = red_bold_font
 
             # 列幅の自動調整
             for col in worksheet.columns:
